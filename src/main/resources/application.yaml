@@ -34,6 +34,9 @@ app:
     lead-created:
       queue: leads.lead-created
       routing-key: lead.created
+  processed-events:
+    retention: 1d
+    cleanup-cron: "0 0 3 * * *"
 
 logging:
   file:

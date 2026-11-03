@@ -9,17 +9,22 @@ import com.hexocnc.lead.model.dto.CreateLeadRequest;
 import com.hexocnc.lead.model.dto.LeadResponseDto;
 import com.hexocnc.lead.model.dto.UpdateLeadRequest;
 import com.hexocnc.lead.repository.LeadRepository;
+import com.hexocnc.lead.repository.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LeadService {
 
     private final LeadRepository leadRepository;
+    private final ProcessedEventRepository processedEventRepository;
 
     @Transactional
     public LeadResponseDto createNewLead(final CreateLeadRequest request) {
@@ -30,10 +35,15 @@ public class LeadService {
     }
 
     @Transactional
-    public LeadResponseDto createLeadFromEvent(final LeadCreatedEvent event) {
+    public void createLeadFromEvent(final LeadCreatedEvent event) {
+        // Same transaction as the save: either both the marker and the lead are stored, or neither.
+        final var eventKey = "%s:%s".formatted(event.domain(), event.id());
+        if (processedEventRepository.insertIfAbsent(eventKey, LocalDateTime.now()) == 0) {
+            log.info("Skipping duplicate LeadCreatedEvent {}", eventKey);
+            return;
+        }
         final var leadEntity = LeadMapper.toEntity(event);
         leadRepository.save(leadEntity);
-        return LeadMapper.toDto(leadEntity);
     }
 
     @Transactional
