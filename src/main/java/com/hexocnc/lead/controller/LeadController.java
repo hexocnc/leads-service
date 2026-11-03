@@ -9,7 +9,6 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,7 +22,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/lead")
-@CrossOrigin(origins = "${app.cors.allowed-origins}")
 @AllArgsConstructor
 public class LeadController {
 
@@ -38,13 +36,11 @@ public class LeadController {
     }
 
     @GetMapping
-    public ResponseEntity<List<LeadResponseDto>> getAllLeadsForDomain(@RequestParam final Domain domain) {
-        return ResponseEntity.ok(leadService.getAllLeads());
-    }
-
-    @GetMapping
-    public ResponseEntity<List<LeadResponseDto>> getAllLeads(@RequestParam final Domain domain) {
-        return ResponseEntity.ok(leadService.getAllLeadsForDomain(domain));
+    public ResponseEntity<List<LeadResponseDto>> getAllLeads(@RequestParam(required = false) final Domain domain) {
+        final var leads = domain == null
+                ? leadService.getAllLeads()
+                : leadService.getAllLeadsForDomain(domain);
+        return ResponseEntity.ok(leads);
     }
 
     @GetMapping("/{id}")

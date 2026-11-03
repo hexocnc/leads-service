@@ -1,5 +1,6 @@
 package com.hexocnc.lead.mapper;
 
+import com.hexocnc.event.LeadCreatedEvent;
 import com.hexocnc.lead.LeadStatus;
 import com.hexocnc.lead.model.LeadEntity;
 import com.hexocnc.lead.model.dto.CreateLeadRequest;
@@ -29,6 +30,17 @@ public class LeadMapper {
         entity.setPhone(request.getPhone());
         entity.setDescription(request.getDescription());
         entity.setStatus(LeadStatus.NEW);
+        return entity;
+    }
+
+    public static LeadEntity toEntity(final LeadCreatedEvent event) {
+        final var entity = new LeadEntity();
+        entity.setDomain(event.domain());
+        entity.setName(event.name());
+        entity.setPhone(event.phone());
+        entity.setDescription(event.description());
+        entity.setStatus(LeadStatus.NEW);
+        entity.setCreatedAt(event.createdAt());
         return entity;
     }
 }

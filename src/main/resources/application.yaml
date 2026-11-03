@@ -9,6 +9,16 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USERNAME:guest}
+    password: ${RABBIT_PASSWORD:guest}
+    listener:
+      simple:
+        # don't redeliver forever when processing fails
+        default-requeue-rejected: false
+
   jpa:
     open-in-view: false
     hibernate:
@@ -17,3 +27,14 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+
+app:
+  rabbit:
+    exchange: leads.exchange
+    lead-created:
+      queue: leads.lead-created
+      routing-key: lead.created
+
+logging:
+  file:
+    name: ./logs/leadservice.log

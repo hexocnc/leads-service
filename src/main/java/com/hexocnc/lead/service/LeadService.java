@@ -1,6 +1,7 @@
 package com.hexocnc.lead.service;
 
 import com.hexocnc.domain.Domain;
+import com.hexocnc.event.LeadCreatedEvent;
 import com.hexocnc.lead.exception.LeadNotFoundException;
 import com.hexocnc.lead.mapper.LeadMapper;
 import com.hexocnc.lead.model.LeadEntity;
@@ -26,6 +27,13 @@ public class LeadService {
         leadRepository.save(leadEntity);
         return LeadMapper.toDto(leadEntity);
 
+    }
+
+    @Transactional
+    public LeadResponseDto createLeadFromEvent(final LeadCreatedEvent event) {
+        final var leadEntity = LeadMapper.toEntity(event);
+        leadRepository.save(leadEntity);
+        return LeadMapper.toDto(leadEntity);
     }
 
     @Transactional
