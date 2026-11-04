@@ -1,5 +1,6 @@
 package com.hexocnc.lead.config;
 
+import com.hexocnc.messaging.LeadMessaging;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -15,8 +16,9 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitConfig {
 
     @Bean
-    public DirectExchange leadExchange(@Value("${app.rabbit.exchange}") final String name) {
-        return new DirectExchange(name, true, false);
+    public DirectExchange leadExchange() {
+        // name and type are part of the shared contract (hexocnc-core), producers declare it identically
+        return new DirectExchange(LeadMessaging.EXCHANGE, true, false);
     }
 
     @Bean
@@ -26,9 +28,8 @@ public class RabbitConfig {
 
     @Bean
     public Binding leadCreatedBinding(final Queue leadCreatedQueue,
-                                      final DirectExchange leadExchange,
-                                      @Value("${app.rabbit.lead-created.routing-key}") final String routingKey) {
-        return BindingBuilder.bind(leadCreatedQueue).to(leadExchange).with(routingKey);
+                                      final DirectExchange leadExchange) {
+        return BindingBuilder.bind(leadCreatedQueue).to(leadExchange).with(LeadMessaging.LEAD_CREATED_ROUTING_KEY);
     }
 
     /** JSON (de)serialization; the target type is inferred from the listener method parameter. */

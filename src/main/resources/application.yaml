@@ -30,10 +30,9 @@ spring:
 
 app:
   rabbit:
-    exchange: leads.exchange
+    # exchange and routing key come from hexocnc-core (LeadMessaging); the queue is owned by this service
     lead-created:
       queue: leads.lead-created
-      routing-key: lead.created
   processed-events:
     retention: 1d
     cleanup-cron: "0 0 3 * * *"
