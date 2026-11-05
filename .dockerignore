@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.mvn
+deploy
+.env
+*.md
+logs
+# у контекст потрапляє лише готовий jar
+target/*
+!target/leads-service-*.jar

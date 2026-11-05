@@ -1,0 +1,122 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          # hexocnc-core лежить у GitHub Packages, який вимагає авторизацію навіть для читання
+          server-id: github
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+      - run: mvn -B verify
+        env:
+          MAVEN_USERNAME: hexocnc
+          MAVEN_PASSWORD: ${{ secrets.PACKAGES_TOKEN }}
+
+  build:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      # jar збирається тут (з авторизацією до GitHub Packages), у Dockerfile лише копіюється
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          # hexocnc-core лежить у GitHub Packages, який вимагає авторизацію навіть для читання
+          server-id: github
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+      - run: mvn -B -DskipTests package
+        env:
+          MAVEN_USERNAME: hexocnc
+          MAVEN_PASSWORD: ${{ secrets.PACKAGES_TOKEN }}
+      - id: meta
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ github.sha }}
+            ${{ steps.meta.outputs.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # у Settings → Environments → production можна додати обов'язкових рецензентів для ручного підтвердження
+    permissions:
+      contents: read
+      packages: read
+    environment: production
+    concurrency:
+      group: deploy-leads-service
+      cancel-in-progress: false
+    env:
+      REMOTE_DIR: /opt/hexo/leads-service
+      SSH_PORT: ${{ secrets.VPS_PORT || '22' }}
+      TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host vps\n  HostName %s\n  User %s\n  Port %s\n  IdentityFile ~/.ssh/deploy_key\n  StrictHostKeyChecking yes\n' \
+            "${{ secrets.VPS_HOST }}" "${{ secrets.VPS_USER }}" "$SSH_PORT" > ~/.ssh/config
+
+      - name: Upload deployment files
+        run: |
+          ssh vps "mkdir -p $REMOTE_DIR"
+          scp deploy/docker-compose.prod.yml deploy/remote-deploy.sh "vps:$REMOTE_DIR/"
+
+      - name: Deploy
+        env:
+          APP_IMAGE: ${{ needs.build.outputs.image }}
+          APP_TAG: ${{ github.sha }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # токен реєстру передається через stdin, щоб не потрапити в командний рядок
+          printf '%s' "$GHCR_TOKEN" | ssh vps \
+            "APP_IMAGE='$APP_IMAGE' APP_TAG='$APP_TAG' GHCR_USER='$GHCR_USER' bash $REMOTE_DIR/remote-deploy.sh"

@@ -1,0 +1,42 @@
+# Прод на VPS: leads-service. Postgres і RabbitMQ — спільні, зі стеку infrastructure (мережа hexo-infra).
+# Портів назовні немає: сервіс споживає заявки з RabbitMQ (черга leads.lead-created) і зберігає їх у БД leads.
+# Секрети — у .env на сервері (див. .env.example), не в git.
+name: leads-service
+
+services:
+  app:
+    image: ${APP_IMAGE:?}:${APP_TAG:-latest}
+    container_name: hexo-leads-service
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-leads}
+      DB_USERNAME: ${DB_USERNAME:-leads}
+      DB_PASSWORD: ${DB_PASSWORD:?вкажіть DB_PASSWORD у .env}
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: "5672"
+      RABBIT_USERNAME: ${RABBIT_USERNAME:-leads}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:?вкажіть RABBIT_PASSWORD у .env}
+    mem_limit: 512m
+    # спрацьовує, коли Tomcat слухає порт (actuator у проєкті немає)
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8080' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      hexo-infra:
+        aliases:
+          - hexo-leads-service
+
+networks:
+  hexo-infra:
+    name: hexo-infra
+    external: true
