@@ -11,16 +11,17 @@ import lombok.experimental.UtilityClass;
 public class LeadMapper {
 
     public static LeadResponseDto toDto(final LeadEntity entity) {
-        final var response = new LeadResponseDto();
-        response.setName(entity.getName());
-        response.setDomain(entity.getDomain());
-        response.setPhone(entity.getPhone());
-        response.setDescription(entity.getDescription());
-        response.setComment(entity.getComment());
-        response.setStatus(entity.getStatus());
-        response.setCreatedAt(entity.getCreatedAt());
-        response.setUpdatedAt(entity.getUpdatedAt());
-        return response;
+        return new LeadResponseDto(
+                entity.getId(),
+                entity.getName(),
+                entity.getDomain(),
+                entity.getPhone(),
+                entity.getDescription(),
+                entity.getComment(),
+                entity.getStatus(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
+        );
     }
 
     public static LeadEntity toEntity(final CreateLeadRequest request) {
